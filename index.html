@@ -102,7 +102,7 @@
         </div>
       </div>
 
-      <!-- Modalidad (Pills interactivos) -->
+      <!-- Modalidad -->
       <div>
         <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">🎯 Modalidad de Entrega</label>
         <div class="grid grid-cols-3 gap-2">
@@ -140,7 +140,7 @@
       </div>
     </div>
 
-    <!-- TARJETA OFICIAL DE REPORTE (ESTA ES LA QUE SE CONVIERTE EN IMAGEN) -->
+    <!-- TARJETA OFICIAL DE REPORTE -->
     <div id="report-card" class="bg-white rounded-3xl shadow-xl shadow-slate-300/50 overflow-hidden border border-slate-200/90">
       
       <!-- Encabezado del Reporte -->
@@ -216,7 +216,8 @@
   <script>
     const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([23.6345, -102.5528], 5);
 
-   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Servidor oficial de OpenStreetMap (100% libre y sin API Key)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
       crossOrigin: 'anonymous'
@@ -233,8 +234,7 @@
     let generatedBlob = null;
     let generatedFileName = '';
 
-    // Línea de ruta con borde suave
-    let polylineBg = L.polyline([], { color: '#ffffff', weight: 8, opacity: 0.8 }).addTo(map);
+    let polylineBg = L.polyline([], { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(map);
     let polyline = L.polyline([], { color: '#dc2626', weight: 5, opacity: 0.95 }).addTo(map);
     let startMarker = null;
     let endMarker = null;
@@ -282,7 +282,6 @@
       dot.className = `relative flex h-2.5 w-2.5 ${dotColors[colorType]} gps-pulse`;
     }
 
-    // 1. Detectar ubicación apenas se abre la página
     function locateUser() {
       setStatusUI('Buscando tu ubicación actual por GPS...', 'amber');
 
@@ -333,7 +332,6 @@
       return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Fórmula Haversine para calcular metros recorridos
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const toRad = x => x * Math.PI / 180;
@@ -348,7 +346,6 @@
       return `${(meters / 1000).toFixed(2)} km`;
     }
 
-    // 2. Iniciar el recorrido
     function startTracking() {
       updatePreviewInfo();
       startTimestamp = new Date();
@@ -371,7 +368,6 @@
 
       if (currentPos) addCoordinate(currentPos[0], currentPos[1], 10);
 
-      // Actualizar contador de minutos en vivo
       timerInterval = setInterval(() => {
         const diffMins = Math.max(1, Math.round((new Date() - startTimestamp) / 60000));
         document.getElementById('info-duration').innerText = `Duración: ${diffMins} min`;
@@ -394,7 +390,6 @@
       if (routeCoords.length > 0) {
         const prev = routeCoords[routeCoords.length - 1];
         const dist = calculateDistance(prev[0], prev[1], lat, lng);
-        // Ignorar micro-saltos del GPS menores a 3 metros
         if (dist < 3 && routeCoords.length > 1) return;
         totalDistanceMeters += dist;
       }
@@ -422,7 +417,6 @@
       );
     }
 
-    // 3. Terminar y generar la imagen de alta calidad
     function finishTracking() {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       if (timerInterval !== null) clearInterval(timerInterval);
@@ -460,13 +454,11 @@
           const workerName = document.getElementById('worker-select').value.replace(/\s+/g, '_');
           generatedFileName = `Volanteo_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
 
-          // Descargar automáticamente
           const link = document.createElement('a');
           link.download = generatedFileName;
           link.href = canvas.toDataURL('image/png');
           link.click();
 
-          // Preparar archivo para compartir directo a WhatsApp desde el celular
           canvas.toBlob((blob) => {
             generatedBlob = blob;
             if (navigator.canShare) {
