@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Volanteo Pro - Lido's Pizza Canteras</title>
+  
+  <!-- Tipografía Moderna: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  
+  <!-- html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    body { background: radial-gradient(circle at top, #fff1f2 0%, #f1f5f9 100%); }
+    #map { height: 340px; width: 100%; z-index: 1; }
+    .mode-btn.active {
+      background-color: #fef2f2;
+      border-color: #dc2626;
+      color: #dc2626;
+      font-weight: 700;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .gps-pulse::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: currentColor;
+      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen py-5 px-3.5 text-slate-800 antialiased selection:bg-red-500 selection:text-white">
+
+  <div class="max-w-md mx-auto space-y-5">
+    
+    <!-- BARRA SUPERIOR DE ESTADO E IDENTIDAD -->
+    <div class="flex items-center justify-between bg-white/90 backdrop-blur-md px-4 py-3 rounded-2xl shadow-sm border border-slate-200/80">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center text-white shadow-md shadow-red-500/20 text-xl">
+          🍕
+        </div>
+        <div>
+          <h1 class="font-extrabold text-sm text-slate-900 leading-tight">Lido's Pizza Canteras</h1>
+          <p class="text-[11px] font-medium text-slate-500">Sistema de Control de Volanteo</p>
+        </div>
+      </div>
+
+      <button id="btn-locate" onclick="locateUser()" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-semibold text-xs px-3 py-2 rounded-xl transition">
+        <span>📍</span>
+        <span>Reubicar</span>
+      </button>
+    </div>
+
+    <!-- PANEL DE CONFIGURACIÓN Y CONTROL -->
+    <div id="control-panel" class="bg-white p-5 rounded-3xl shadow-lg shadow-slate-200/60 border border-slate-100 space-y-4">
+      
+      <!-- Estado del GPS -->
+      <div id="status-badge" class="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-700 text-xs font-semibold">
+        <span id="status-dot" class="relative flex h-2.5 w-2.5 text-amber-500 gps-pulse">
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-current"></span>
+        </span>
+        <span id="status-text">Solicitando permiso de ubicación GPS...</span>
+      </div>
+
+      <!-- Selección de Integrante -->
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">👤 Encargado del Volanteo</label>
+        <div class="relative">
+          <select id="worker-select" onchange="updatePreviewInfo()" class="w-full appearance-none border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            <option value="Integrante 1">Integrante 1</option>
+            <option value="Integrante 2">Integrante 2</option>
+            <option value="Integrante 3">Integrante 3</option>
+            <option value="Integrante 4">Integrante 4</option>
+            <option value="Integrante 5">Integrante 5</option>
+            <option value="Integrante 6">Integrante 6</option>
+            <option value="Integrante 7">Integrante 7</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 text-xs">▼</div>
+        </div>
+      </div>
+
+      <!-- Modalidad (Pills interactivos) -->
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">🎯 Modalidad de Entrega</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="selectMode('Casas', this)" class="mode-btn active border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
+            🏠 Casas
+          </button>
+          <button type="button" onclick="selectMode('Carros', this)" class="mode-btn border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
+            🚗 Carros
+          </button>
+          <button type="button" onclick="selectMode('Punto Fijo', this)" class="mode-btn border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
+            📍 Punto Fijo
+          </button>
+        </div>
+      </div>
+
+      <!-- Colonia o Referencia -->
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">🏘️ Colonia, Calle o Lugar</label>
+        <input id="zone-input" oninput="updatePreviewInfo()" type="text" placeholder="Ej. Col. Las Canteras / Estacionamiento Plaza" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-700 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="pt-1 flex gap-2.5">
+        <button id="btn-start" onclick="startTracking()" disabled class="flex-1 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 active:scale-[0.98] disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md shadow-green-600/20 disabled:shadow-none transition flex items-center justify-center gap-1.5">
+          <span>▶</span> Iniciar Ruta
+        </button>
+
+        <button id="btn-mark" onclick="forcePoint()" disabled class="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md shadow-blue-600/20 disabled:shadow-none transition" title="Marcar esquina o punto">
+          + Punto
+        </button>
+
+        <button id="btn-stop" onclick="finishTracking()" disabled class="flex-1 bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-700 hover:to-rose-600 active:scale-[0.98] disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md shadow-red-600/20 disabled:shadow-none transition flex items-center justify-center gap-1.5">
+          <span>⏹</span> Terminar
+        </button>
+      </div>
+    </div>
+
+    <!-- TARJETA OFICIAL DE REPORTE (ESTA ES LA QUE SE CONVIERTE EN IMAGEN) -->
+    <div id="report-card" class="bg-white rounded-3xl shadow-xl shadow-slate-300/50 overflow-hidden border border-slate-200/90">
+      
+      <!-- Encabezado del Reporte -->
+      <div class="bg-gradient-to-r from-red-700 via-red-600 to-orange-600 text-white p-4">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-2.5">
+            <div class="bg-white/15 backdrop-blur-sm p-2 rounded-xl text-lg leading-none">
+              🍕
+            </div>
+            <div>
+              <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-200 block">Reporte Oficial de Volanteo</span>
+              <h2 class="font-extrabold text-base tracking-tight">Lido's Pizza • Canteras</h2>
+            </div>
+          </div>
+          <div class="text-right">
+            <span id="report-date" class="inline-block text-xs font-bold bg-black/25 px-2.5 py-1 rounded-lg font-mono">--/--/----</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contenedor del Mapa -->
+      <div class="relative">
+        <div id="map"></div>
+      </div>
+
+      <!-- Leyenda del Mapa -->
+      <div class="bg-slate-900 text-white px-4 py-2 flex items-center justify-between text-[11px] font-medium">
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Inicio</span>
+          <span class="flex items-center gap-1"><span class="w-4 h-1 rounded bg-red-500 inline-block"></span> Recorrido</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 border border-white inline-block"></span> Fin</span>
+        </div>
+        <span class="text-emerald-400 font-semibold">✓ GPS Verificado</span>
+      </div>
+
+      <!-- Cuadrícula de Datos del Recorrido -->
+      <div class="p-4 bg-slate-50/70 grid grid-cols-2 gap-2.5">
+        
+        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">👤 Encargado</span>
+          <span id="info-worker" class="font-extrabold text-slate-800 text-sm block truncate">Integrante 1</span>
+        </div>
+
+        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">🎯 Zona y Modalidad</span>
+          <span id="info-zone" class="font-extrabold text-slate-800 text-sm block truncate">Casas • General</span>
+        </div>
+
+        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">⏰ Horario</span>
+          <span id="info-time" class="font-bold text-slate-800 text-xs block">--:-- a --:--</span>
+          <span id="info-duration" class="text-[11px] font-semibold text-red-600 block mt-0.5">Duración: 0 min</span>
+        </div>
+
+        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">📏 Cobertura</span>
+          <span id="info-distance" class="font-extrabold text-slate-800 text-sm block">0 metros</span>
+          <span id="info-points" class="text-[11px] font-medium text-slate-500 block mt-0.5">0 puntos GPS</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTÓN EXTRA PARA COMPARTIR DIRECTO A WHATSAPP AL TERMINAR -->
+    <div id="share-container" class="hidden">
+      <button onclick="shareImage()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-lg shadow-emerald-600/25 text-sm flex items-center justify-center gap-2 transition">
+        <span>📲</span> Compartir Reporte por WhatsApp
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([23.6345, -102.5528], 5);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap',
+      crossOrigin: true
+    }).addTo(map);
+
+    let currentPos = null;
+    let previewMarker = null;
+    let watchId = null;
+    let routeCoords = [];
+    let totalDistanceMeters = 0;
+    let selectedMode = 'Casas';
+    let startTimestamp = null;
+    let timerInterval = null;
+    let generatedBlob = null;
+    let generatedFileName = '';
+
+    // Línea de ruta con borde suave
+    let polylineBg = L.polyline([], { color: '#ffffff', weight: 8, opacity: 0.8 }).addTo(map);
+    let polyline = L.polyline([], { color: '#dc2626', weight: 5, opacity: 0.95 }).addTo(map);
+    let startMarker = null;
+    let endMarker = null;
+    let wakeLock = null;
+
+    const now = new Date();
+    document.getElementById('report-date').innerText = now.toLocaleDateString('es-MX', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+
+    function selectMode(mode, btnElement) {
+      selectedMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+      updatePreviewInfo();
+    }
+
+    function updatePreviewInfo() {
+      const worker = document.getElementById('worker-select').value;
+      const customZone = document.getElementById('zone-input').value.trim();
+      document.getElementById('info-worker').innerText = worker;
+      document.getElementById('info-zone').innerText = customZone ? `${selectedMode} • ${customZone}` : `${selectedMode} • General`;
+    }
+
+    function setStatusUI(message, colorType) {
+      const badge = document.getElementById('status-badge');
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      text.innerText = message;
+
+      const styles = {
+        amber: 'bg-amber-50 border-amber-200/70 text-amber-700',
+        green: 'bg-emerald-50 border-emerald-200/70 text-emerald-700',
+        blue:  'bg-blue-50 border-blue-200/70 text-blue-700',
+        red:   'bg-red-50 border-red-200/70 text-red-700'
+      };
+      const dotColors = {
+        amber: 'text-amber-500',
+        green: 'text-emerald-500',
+        blue:  'text-blue-600',
+        red:   'text-red-500'
+      };
+
+      badge.className = `flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold ${styles[colorType]}`;
+      dot.className = `relative flex h-2.5 w-2.5 ${dotColors[colorType]} gps-pulse`;
+    }
+
+    // 1. Detectar ubicación apenas se abre la página
+    function locateUser() {
+      setStatusUI('Buscando tu ubicación actual por GPS...', 'amber');
+
+      if (!navigator.geolocation) {
+        setStatusUI('Tu navegador no soporta GPS.', 'red');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentPos = [pos.coords.latitude, pos.coords.longitude];
+          map.setView(currentPos, 17);
+
+          if (previewMarker) {
+            previewMarker.setLatLng(currentPos);
+          } else {
+            previewMarker = L.circleMarker(currentPos, {
+              radius: 9,
+              color: '#ffffff',
+              weight: 3,
+              fillColor: '#2563eb',
+              fillOpacity: 1
+            }).addTo(map);
+          }
+
+          document.getElementById('btn-start').disabled = false;
+          setStatusUI('Ubicación detectada. Listo para iniciar.', 'green');
+        },
+        (err) => {
+          setStatusUI('Activa la ubicación de tu celular y toca "Reubicar".', 'red');
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updatePreviewInfo();
+      locateUser();
+    });
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+      } catch (e) {}
+    }
+
+    function formatTime(date) {
+      return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Fórmula Haversine para calcular metros recorridos
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function formatDistance(meters) {
+      if (meters < 1000) return `${Math.round(meters)} metros`;
+      return `${(meters / 1000).toFixed(2)} km`;
+    }
+
+    // 2. Iniciar el recorrido
+    function startTracking() {
+      updatePreviewInfo();
+      startTimestamp = new Date();
+      const startTimeStr = formatTime(startTimestamp);
+
+      document.getElementById('info-time').innerText = `${startTimeStr} a En curso...`;
+      document.getElementById('info-time').dataset.start = startTimeStr;
+
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-locate').disabled = true;
+      document.getElementById('btn-mark').disabled = false;
+      document.getElementById('btn-stop').disabled = false;
+
+      setStatusUI('Grabando ruta en vivo... No cierres esta ventana.', 'blue');
+
+      if (previewMarker) {
+        map.removeLayer(previewMarker);
+        previewMarker = null;
+      }
+
+      if (currentPos) addCoordinate(currentPos[0], currentPos[1], 10);
+
+      // Actualizar contador de minutos en vivo
+      timerInterval = setInterval(() => {
+        const diffMins = Math.max(1, Math.round((new Date() - startTimestamp) / 60000));
+        document.getElementById('info-duration').innerText = `Duración: ${diffMins} min`;
+      }, 15000);
+
+      requestWakeLock();
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => addCoordinate(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+        () => setStatusUI('Señal GPS débil. Usa "+ Punto" en cada esquina.', 'amber'),
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      );
+    }
+
+    function addCoordinate(lat, lng, accuracy) {
+      if (accuracy && accuracy > 50 && routeCoords.length > 0) return;
+
+      const newPoint = [lat, lng];
+
+      if (routeCoords.length > 0) {
+        const prev = routeCoords[routeCoords.length - 1];
+        const dist = calculateDistance(prev[0], prev[1], lat, lng);
+        // Ignorar micro-saltos del GPS menores a 3 metros
+        if (dist < 3 && routeCoords.length > 1) return;
+        totalDistanceMeters += dist;
+      }
+
+      routeCoords.push(newPoint);
+      polylineBg.setLatLngs(routeCoords);
+      polyline.setLatLngs(routeCoords);
+      map.panTo(newPoint);
+
+      if (routeCoords.length === 1) {
+        startMarker = L.circleMarker(newPoint, {
+          radius: 8, color: '#ffffff', weight: 2.5, fillColor: '#16a34a', fillOpacity: 1
+        }).addTo(map);
+      }
+
+      document.getElementById('info-distance').innerText = formatDistance(totalDistanceMeters);
+      document.getElementById('info-points').innerText = `${routeCoords.length} puntos GPS`;
+    }
+
+    function forcePoint() {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => addCoordinate(pos.coords.latitude, pos.coords.longitude, 5),
+        null,
+        { enableHighAccuracy: true }
+      );
+    }
+
+    // 3. Terminar y generar la imagen de alta calidad
+    function finishTracking() {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (timerInterval !== null) clearInterval(timerInterval);
+      if (wakeLock !== null) wakeLock.release();
+
+      document.getElementById('btn-mark').disabled = true;
+      document.getElementById('btn-stop').disabled = true;
+
+      const endTimestamp = new Date();
+      const startTimeStr = document.getElementById('info-time').dataset.start;
+      const endTimeStr = formatTime(endTimestamp);
+      const totalMins = Math.max(1, Math.round((endTimestamp - startTimestamp) / 60000));
+
+      document.getElementById('info-time').innerText = `${startTimeStr} - ${endTimeStr}`;
+      document.getElementById('info-duration').innerText = `Duración: ${totalMins} min`;
+
+      setStatusUI('Generando reporte visual en alta calidad...', 'amber');
+
+      if (routeCoords.length > 0) {
+        const lastPoint = routeCoords[routeCoords.length - 1];
+        endMarker = L.circleMarker(lastPoint, {
+          radius: 8, color: '#ffffff', weight: 2.5, fillColor: '#dc2626', fillOpacity: 1
+        }).addTo(map);
+
+        if (routeCoords.length === 1) {
+          map.setView(lastPoint, 17);
+        } else {
+          map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+        }
+      }
+
+      setTimeout(() => {
+        const reportElement = document.getElementById('report-card');
+        html2canvas(reportElement, { useCORS: true, scale: 3, backgroundColor: '#ffffff' }).then((canvas) => {
+          const workerName = document.getElementById('worker-select').value.replace(/\s+/g, '_');
+          generatedFileName = `Volanteo_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
+
+          // Descargar automáticamente
+          const link = document.createElement('a');
+          link.download = generatedFileName;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+
+          // Preparar archivo para compartir directo a WhatsApp desde el celular
+          canvas.toBlob((blob) => {
+            generatedBlob = blob;
+            if (navigator.canShare) {
+              document.getElementById('share-container').classList.remove('hidden');
+            }
+          }, 'image/png');
+
+          setStatusUI('¡Reporte listo! Imagen guardada en tu celular.', 'green');
+        });
+      }, 950);
+    }
+
+    async function shareImage() {
+      if (!generatedBlob) return;
+      const file = new File([generatedBlob], generatedFileName, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Reporte de Volanteo - Lido\'s Pizza',
+            text: `Reporte de volanteo realizado por ${document.getElementById('worker-select').value}`,
+            files: [file]
+          });
+        } catch (err) {}
+      }
+    }
+  </script>
+</body>
+</html>
