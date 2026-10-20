@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Volanteo Pro - Lido's Pizza Canteras</title>
+  <title>Bitácora Cartográfica / Lido's Pizza Canteras</title>
   
-  <!-- Tipografía Moderna: Plus Jakarta Sans -->
+  <!-- Tipografía Editorial y Técnica: Instrument Serif + Space Grotesk + IBM Plex Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -16,7 +16,17 @@
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] }
+          colors: {
+            paper: '#F3EFE6',
+            stone: '#E6E0D3',
+            ink: '#161514',
+            vermilion: '#C83B2B'
+          },
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'serif'],
+            sans: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'monospace']
+          }
         }
       }
     }
@@ -30,184 +40,226 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
-    body { background: radial-gradient(circle at top, #fff1f2 0%, #f1f5f9 100%); }
-    #map { height: 340px; width: 100%; z-index: 1; }
+    body {
+      background-color: #F3EFE6;
+      color: #161514;
+      background-image: radial-gradient(#161514 0.45px, transparent 0.45px);
+      background-size: 24px 24px;
+    }
+    #map {
+      height: 360px;
+      width: 100%;
+      z-index: 1;
+      filter: contrast(1.04) sepia(0.08);
+    }
+    .mode-btn {
+      background-color: transparent;
+      color: #161514;
+      transition: all 0.15s ease;
+    }
     .mode-btn.active {
-      background-color: #fef2f2;
-      border-color: #dc2626;
-      color: #dc2626;
+      background-color: #161514;
+      color: #F3EFE6;
       font-weight: 700;
     }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 0.8; }
-      100% { transform: scale(2.2); opacity: 0; }
+    .hard-offset {
+      box-shadow: 4px 4px 0px #161514;
     }
-    .gps-pulse::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 9999px;
-      background-color: currentColor;
-      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    .btn-editorial {
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      box-shadow: 3px 3px 0px #161514;
+    }
+    .btn-editorial:active:not(:disabled) {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px #161514;
+    }
+    .btn-editorial:disabled {
+      opacity: 0.35;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+    @keyframes blink-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+    .gps-pulse {
+      animation: blink-dot 1.2s infinite;
     }
   </style>
 </head>
-<body class="min-h-screen py-5 px-3.5 text-slate-800 antialiased selection:bg-red-500 selection:text-white">
+<body class="min-h-screen py-8 px-4 md:px-8 antialiased selection:bg-vermilion selection:text-paper">
 
-  <div class="max-w-md mx-auto space-y-5">
+  <div class="max-w-lg mx-auto">
     
-    <!-- BARRA SUPERIOR DE ESTADO E IDENTIDAD -->
-    <div class="flex items-center justify-between bg-white/90 backdrop-blur-md px-4 py-3 rounded-2xl shadow-sm border border-slate-200/80">
-      <div class="flex items-center gap-2.5">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center text-white shadow-md shadow-red-500/20 text-xl">
-          🍕
-        </div>
-        <div>
-          <h1 class="font-extrabold text-sm text-slate-900 leading-tight">Lido's Pizza Canteras</h1>
-          <p class="text-[11px] font-medium text-slate-500">Sistema de Control de Volanteo</p>
-        </div>
+    <!-- CABECERA EDITORIAL ASIMÉTRICA -->
+    <header class="border-t-4 border-b border-ink pt-4 pb-6 mb-10 bg-paper">
+      <div class="flex justify-between items-baseline mb-3 font-mono text-[10px] uppercase tracking-widest">
+        <span>DOC. OP / CANTERAS 01</span>
+        <span>REGISTRO DE CAMPO</span>
       </div>
-
-      <button id="btn-locate" onclick="locateUser()" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-semibold text-xs px-3 py-2 rounded-xl transition">
-        <span>📍</span>
-        <span>Reubicar</span>
-      </button>
-    </div>
-
-    <!-- PANEL DE CONFIGURACIÓN Y CONTROL -->
-    <div id="control-panel" class="bg-white p-5 rounded-3xl shadow-lg shadow-slate-200/60 border border-slate-100 space-y-4">
       
-      <!-- Estado del GPS -->
-      <div id="status-badge" class="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-700 text-xs font-semibold">
-        <span id="status-dot" class="relative flex h-2.5 w-2.5 text-amber-500 gps-pulse">
-          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-current"></span>
-        </span>
-        <span id="status-text">Solicitando permiso de ubicación GPS...</span>
-      </div>
-
-      <!-- Selección de Integrante -->
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">👤 Encargado del Volanteo</label>
-        <div class="relative">
-          <select id="worker-select" onchange="updatePreviewInfo()" class="w-full appearance-none border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
-            <option value="Integrante 1">Integrante 1</option>
-            <option value="Integrante 2">Integrante 2</option>
-            <option value="Integrante 3">Integrante 3</option>
-            <option value="Integrante 4">Integrante 4</option>
-            <option value="Integrante 5">Integrante 5</option>
-            <option value="Integrante 6">Integrante 6</option>
-            <option value="Integrante 7">Integrante 7</option>
-          </select>
-          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 text-xs">▼</div>
+      <div class="grid grid-cols-12 gap-2 items-end">
+        <div class="col-span-8">
+          <h1 class="font-serif text-5xl leading-[0.88] tracking-tight text-ink">
+            Lido's Pizza<br><span class="italic font-normal text-vermilion">Canteras</span>
+          </h1>
         </div>
-      </div>
-
-      <!-- Modalidad -->
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">🎯 Modalidad de Entrega</label>
-        <div class="grid grid-cols-3 gap-2">
-          <button type="button" onclick="selectMode('Casas', this)" class="mode-btn active border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
-            🏠 Casas
-          </button>
-          <button type="button" onclick="selectMode('Carros', this)" class="mode-btn border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
-            🚗 Carros
-          </button>
-          <button type="button" onclick="selectMode('Punto Fijo', this)" class="mode-btn border border-slate-200 rounded-xl py-2 px-2 text-xs font-medium text-slate-600 transition flex items-center justify-center gap-1">
-            📍 Punto Fijo
+        <div class="col-span-4 flex justify-end">
+          <button id="btn-locate" onclick="locateUser()" class="border border-ink bg-paper hover:bg-ink hover:text-paper font-mono text-[10px] uppercase tracking-wider px-3 py-2.5 transition">
+            + Reubicar GPS
           </button>
         </div>
       </div>
+    </header>
 
-      <!-- Colonia o Referencia -->
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">🏘️ Colonia, Calle o Lugar</label>
-        <input id="zone-input" oninput="updatePreviewInfo()" type="text" placeholder="Ej. Col. Las Canteras / Estacionamiento Plaza" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-700 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+    <!-- PANEL DE CONFIGURACIÓN Y CONTROL (ESTILO FORMULARIO TÉCNICO SUIZO) -->
+    <section id="control-panel" class="mb-12 bg-paper border border-ink p-5 hard-offset">
+      
+      <!-- Barra de Estado del GPS -->
+      <div id="status-badge" class="border-b border-ink pb-3 mb-6 flex items-center justify-between font-mono text-[11px] uppercase tracking-wider text-ink">
+        <div class="flex items-center gap-2.5">
+          <span id="status-dot" class="inline-block h-2.5 w-2.5 bg-vermilion gps-pulse"></span>
+          <span id="status-text">Solicitando permiso de ubicación GPS...</span>
+        </div>
+        <span>[SYS]</span>
       </div>
 
-      <!-- Botones de Acción -->
-      <div class="pt-1 flex gap-2.5">
-        <button id="btn-start" onclick="startTracking()" disabled class="flex-1 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 active:scale-[0.98] disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md shadow-green-600/20 disabled:shadow-none transition flex items-center justify-center gap-1.5">
-          <span>▶</span> Iniciar Ruta
+      <!-- 01 / Selección de Integrante y 02 / Zona en composición asimétrica -->
+      <div class="grid grid-cols-12 gap-6 mb-7">
+        <div class="col-span-12 sm:col-span-5">
+          <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
+            01 / Operador
+          </label>
+          <div class="relative border-b-2 border-ink">
+            <select id="worker-select" onchange="updatePreviewInfo()" class="w-full appearance-none bg-transparent py-2 pr-6 font-sans text-base font-bold text-ink focus:outline-none cursor-pointer rounded-none">
+              <option value="Integrante 1">Integrante 1</option>
+              <option value="Integrante 2">Integrante 2</option>
+              <option value="Integrante 3">Integrante 3</option>
+              <option value="Integrante 4">Integrante 4</option>
+              <option value="Integrante 5">Integrante 5</option>
+              <option value="Integrante 6">Integrante 6</option>
+              <option value="Integrante 7">Integrante 7</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center font-mono text-xs text-ink">↓</div>
+          </div>
+        </div>
+
+        <div class="col-span-12 sm:col-span-7">
+          <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
+            02 / Demarcación o Calle
+          </label>
+          <input id="zone-input" oninput="updatePreviewInfo()" type="text" placeholder="Ej. Col. Las Canteras / Plaza" class="w-full border-b-2 border-ink bg-transparent py-2 font-sans text-base font-bold text-ink placeholder:text-ink/40 placeholder:font-normal focus:outline-none focus:border-vermilion rounded-none transition">
+        </div>
+      </div>
+
+      <!-- 03 / Modalidad (Tira continua de 1px sin separación redondeada) -->
+      <div class="mb-8">
+        <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
+          03 / Modalidad de Distribución
+        </label>
+        <div class="grid grid-cols-3 border border-ink divide-x divide-ink">
+          <button type="button" onclick="selectMode('Casas', this)" class="mode-btn active py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
+            Casas
+          </button>
+          <button type="button" onclick="selectMode('Carros', this)" class="mode-btn py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
+            Carros
+          </button>
+          <button type="button" onclick="selectMode('Punto Fijo', this)" class="mode-btn py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
+            Punto Fijo
+          </button>
+        </div>
+      </div>
+
+      <!-- Botonera de Ejecución -->
+      <div class="grid grid-cols-12 gap-3 pt-2">
+        <button id="btn-start" onclick="startTracking()" disabled class="btn-editorial col-span-5 border border-ink bg-ink text-paper font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-3">
+          Iniciar Ruta
         </button>
 
-        <button id="btn-mark" onclick="forcePoint()" disabled class="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md shadow-blue-600/20 disabled:shadow-none transition" title="Marcar esquina o punto">
+        <button id="btn-mark" onclick="forcePoint()" disabled class="btn-editorial col-span-3 border border-ink bg-stone text-ink font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-2" title="Marcar esquina">
           + Punto
         </button>
 
-        <button id="btn-stop" onclick="finishTracking()" disabled class="flex-1 bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-700 hover:to-rose-600 active:scale-[0.98] disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md shadow-red-600/20 disabled:shadow-none transition flex items-center justify-center gap-1.5">
-          <span>⏹</span> Terminar
+        <button id="btn-stop" onclick="finishTracking()" disabled class="btn-editorial col-span-4 border border-ink bg-vermilion text-paper font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-3">
+          Terminar
         </button>
       </div>
-    </div>
+    </section>
 
-    <!-- TARJETA OFICIAL DE REPORTE -->
-    <div id="report-card" class="bg-white rounded-3xl shadow-xl shadow-slate-300/50 overflow-hidden border border-slate-200/90">
+    <!-- PLIEGO OFICIAL DE REPORTE (SE EXPORTA A IMAGEN) -->
+    <article id="report-card" class="bg-paper border-2 border-ink">
       
-      <!-- Encabezado del Reporte -->
-      <div class="bg-gradient-to-r from-red-700 via-red-600 to-orange-600 text-white p-4">
-        <div class="flex justify-between items-start">
-          <div class="flex items-center gap-2.5">
-            <div class="bg-white/15 backdrop-blur-sm p-2 rounded-xl text-lg leading-none">
-              🍕
-            </div>
-            <div>
-              <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-200 block">Reporte Oficial de Volanteo</span>
-              <h2 class="font-extrabold text-base tracking-tight">Lido's Pizza • Canteras</h2>
-            </div>
-          </div>
-          <div class="text-right">
-            <span id="report-date" class="inline-block text-xs font-bold bg-black/25 px-2.5 py-1 rounded-lg font-mono">--/--/----</span>
-          </div>
+      <!-- Encabezado Editorial del Reporte -->
+      <div class="border-b border-ink p-5 grid grid-cols-12 gap-2 items-end bg-paper">
+        <div class="col-span-8">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-vermilion font-semibold block mb-1">
+            Bitácora de Distribución
+          </span>
+          <h2 class="font-serif text-4xl leading-none text-ink">
+            Lido's Pizza Canteras
+          </h2>
+        </div>
+        <div class="col-span-4 text-right border-l border-ink pl-3">
+          <span class="font-mono text-[9px] uppercase tracking-widest block text-ink">Fecha</span>
+          <span id="report-date" class="font-mono text-xs font-semibold text-ink block mt-0.5">--/--/----</span>
         </div>
       </div>
 
-      <!-- Contenedor del Mapa -->
-      <div class="relative">
+      <!-- Lienzo Cartográfico -->
+      <div class="relative border-b border-ink">
         <div id="map"></div>
       </div>
 
-      <!-- Leyenda del Mapa -->
-      <div class="bg-slate-900 text-white px-4 py-2 flex items-center justify-between text-[11px] font-medium">
-        <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Inicio</span>
-          <span class="flex items-center gap-1"><span class="w-4 h-1 rounded bg-red-500 inline-block"></span> Recorrido</span>
-          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 border border-white inline-block"></span> Fin</span>
+      <!-- Cinta Técnica de Leyenda -->
+      <div class="bg-ink text-paper px-4 py-2.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider">
+        <div class="flex items-center gap-4">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-paper inline-block"></span> Inicio</span>
+          <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-vermilion inline-block"></span> Trazo</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-vermilion inline-block"></span> Fin</span>
         </div>
-        <span class="text-emerald-400 font-semibold">✓ GPS Verificado</span>
+        <span>GPS VERIFICADO</span>
       </div>
 
-      <!-- Cuadrícula de Datos del Recorrido -->
-      <div class="p-4 bg-slate-50/70 grid grid-cols-2 gap-2.5">
+      <!-- Retícula Asimétrica de Datos (Sin tarjetas anidadas, dividida por hilos de 1px) -->
+      <div class="grid grid-cols-12 divide-y divide-ink bg-paper">
         
-        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">👤 Encargado</span>
-          <span id="info-worker" class="font-extrabold text-slate-800 text-sm block truncate">Integrante 1</span>
+        <!-- Bloque A: Distancia Gigante (7 columnas) + Horario (5 columnas) -->
+        <div class="col-span-7 p-5 border-r border-ink flex flex-col justify-between">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-ink">A / Cobertura Total</span>
+          <div class="my-3">
+            <span id="info-distance" class="font-serif text-5xl leading-none text-ink block">0 metros</span>
+          </div>
+          <span id="info-points" class="font-mono text-[10px] uppercase tracking-wider text-vermilion font-semibold">0 puntos GPS</span>
         </div>
 
-        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">🎯 Zona y Modalidad</span>
-          <span id="info-zone" class="font-extrabold text-slate-800 text-sm block truncate">Casas • General</span>
+        <div class="col-span-5 p-5 flex flex-col justify-between bg-stone/50">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-ink">B / Cronometraje</span>
+          <div class="my-2">
+            <span id="info-time" class="font-mono text-xs font-semibold text-ink block">--:-- a --:--</span>
+            <span id="info-duration" class="font-sans text-lg font-bold text-ink block mt-1">Duración: 0 min</span>
+          </div>
+          <span class="font-mono text-[9px] uppercase tracking-widest text-ink">Hora Local</span>
         </div>
 
-        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">⏰ Horario</span>
-          <span id="info-time" class="font-bold text-slate-800 text-xs block">--:-- a --:--</span>
-          <span id="info-duration" class="text-[11px] font-semibold text-red-600 block mt-0.5">Duración: 0 min</span>
+        <!-- Bloque B: Encargado (5 columnas) + Zona (7 columnas) -->
+        <div class="col-span-5 p-4 border-r border-ink">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-ink block mb-1">C / Responsable</span>
+          <span id="info-worker" class="font-sans font-bold text-ink text-sm block truncate">Integrante 1</span>
         </div>
 
-        <div class="bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">📏 Cobertura</span>
-          <span id="info-distance" class="font-extrabold text-slate-800 text-sm block">0 metros</span>
-          <span id="info-points" class="text-[11px] font-medium text-slate-500 block mt-0.5">0 puntos GPS</span>
+        <div class="col-span-7 p-4">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-ink block mb-1">D / Sector y Modalidad</span>
+          <span id="info-zone" class="font-sans font-bold text-ink text-sm block truncate">Casas • General</span>
         </div>
 
       </div>
-    </div>
+    </article>
 
-    <!-- BOTÓN EXTRA PARA COMPARTIR DIRECTO A WHATSAPP AL TERMINAR -->
-    <div id="share-container" class="hidden">
-      <button onclick="shareImage()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-lg shadow-emerald-600/25 text-sm flex items-center justify-center gap-2 transition">
-        <span>📲</span> Compartir Reporte por WhatsApp
+    <!-- BOTÓN DE DESPACHO A WHATSAPP -->
+    <div id="share-container" class="hidden mt-8">
+      <button onclick="shareImage()" class="btn-editorial w-full border-2 border-ink bg-ink text-paper font-mono text-xs font-semibold uppercase tracking-widest py-4 px-5 flex items-center justify-between">
+        <span>Enviar Bitácora por WhatsApp</span>
+        <span>→</span>
       </button>
     </div>
 
@@ -216,7 +268,6 @@
   <script>
     const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([23.6345, -102.5528], 5);
 
-    // Servidor oficial de OpenStreetMap (100% libre y sin API Key)
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
@@ -234,8 +285,9 @@
     let generatedBlob = null;
     let generatedFileName = '';
 
-    let polylineBg = L.polyline([], { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(map);
-    let polyline = L.polyline([], { color: '#dc2626', weight: 5, opacity: 0.95 }).addTo(map);
+    // Trazo cartográfico en tinta y bermellón
+    let polylineBg = L.polyline([], { color: '#F3EFE6', weight: 8, opacity: 0.9 }).addTo(map);
+    let polyline = L.polyline([], { color: '#C83B2B', weight: 4, opacity: 1 }).addTo(map);
     let startMarker = null;
     let endMarker = null;
     let wakeLock = null;
@@ -256,37 +308,29 @@
       const worker = document.getElementById('worker-select').value;
       const customZone = document.getElementById('zone-input').value.trim();
       document.getElementById('info-worker').innerText = worker;
-      document.getElementById('info-zone').innerText = customZone ? `${selectedMode} • ${customZone}` : `${selectedMode} • General`;
+      document.getElementById('info-zone').innerText = customZone ? `${selectedMode} / ${customZone}` : `${selectedMode} / General`;
     }
 
     function setStatusUI(message, colorType) {
-      const badge = document.getElementById('status-badge');
       const dot = document.getElementById('status-dot');
       const text = document.getElementById('status-text');
       text.innerText = message;
 
-      const styles = {
-        amber: 'bg-amber-50 border-amber-200/70 text-amber-700',
-        green: 'bg-emerald-50 border-emerald-200/70 text-emerald-700',
-        blue:  'bg-blue-50 border-blue-200/70 text-blue-700',
-        red:   'bg-red-50 border-red-200/70 text-red-700'
-      };
       const dotColors = {
-        amber: 'text-amber-500',
-        green: 'text-emerald-500',
-        blue:  'text-blue-600',
-        red:   'text-red-500'
+        amber: 'bg-vermilion gps-pulse',
+        green: 'bg-ink',
+        blue:  'bg-vermilion gps-pulse',
+        red:   'bg-vermilion'
       };
 
-      badge.className = `flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold ${styles[colorType]}`;
-      dot.className = `relative flex h-2.5 w-2.5 ${dotColors[colorType]} gps-pulse`;
+      dot.className = `inline-block h-2.5 w-2.5 ${dotColors[colorType] || 'bg-ink'}`;
     }
 
     function locateUser() {
-      setStatusUI('Buscando tu ubicación actual por GPS...', 'amber');
+      setStatusUI('Buscando coordenadas GPS...', 'amber');
 
       if (!navigator.geolocation) {
-        setStatusUI('Tu navegador no soporta GPS.', 'red');
+        setStatusUI('Navegador sin soporte GPS.', 'red');
         return;
       }
 
@@ -299,19 +343,19 @@
             previewMarker.setLatLng(currentPos);
           } else {
             previewMarker = L.circleMarker(currentPos, {
-              radius: 9,
-              color: '#ffffff',
-              weight: 3,
-              fillColor: '#2563eb',
+              radius: 7,
+              color: '#F3EFE6',
+              weight: 2,
+              fillColor: '#161514',
               fillOpacity: 1
             }).addTo(map);
           }
 
           document.getElementById('btn-start').disabled = false;
-          setStatusUI('Ubicación detectada. Listo para iniciar.', 'green');
+          setStatusUI('Coordenadas fijadas. Listo para iniciar.', 'green');
         },
         (err) => {
-          setStatusUI('Activa la ubicación de tu celular y toca "Reubicar".', 'red');
+          setStatusUI('Activa la ubicación y presiona "+ Reubicar GPS".', 'red');
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
@@ -342,7 +386,7 @@
     }
 
     function formatDistance(meters) {
-      if (meters < 1000) return `${Math.round(meters)} metros`;
+      if (meters < 1000) return `${Math.round(meters)} m`;
       return `${(meters / 1000).toFixed(2)} km`;
     }
 
@@ -351,7 +395,7 @@
       startTimestamp = new Date();
       const startTimeStr = formatTime(startTimestamp);
 
-      document.getElementById('info-time').innerText = `${startTimeStr} a En curso...`;
+      document.getElementById('info-time').innerText = `${startTimeStr} a En curso`;
       document.getElementById('info-time').dataset.start = startTimeStr;
 
       document.getElementById('btn-start').disabled = true;
@@ -359,7 +403,7 @@
       document.getElementById('btn-mark').disabled = false;
       document.getElementById('btn-stop').disabled = false;
 
-      setStatusUI('Grabando ruta en vivo... No cierres esta ventana.', 'blue');
+      setStatusUI('Registrando trazo en vivo...', 'blue');
 
       if (previewMarker) {
         map.removeLayer(previewMarker);
@@ -377,7 +421,7 @@
 
       watchId = navigator.geolocation.watchPosition(
         (pos) => addCoordinate(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
-        () => setStatusUI('Señal GPS débil. Usa "+ Punto" en cada esquina.', 'amber'),
+        () => setStatusUI('Señal débil. Usa "+ Punto" en cada esquina.', 'amber'),
         { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
       );
     }
@@ -401,7 +445,7 @@
 
       if (routeCoords.length === 1) {
         startMarker = L.circleMarker(newPoint, {
-          radius: 8, color: '#ffffff', weight: 2.5, fillColor: '#16a34a', fillOpacity: 1
+          radius: 7, color: '#F3EFE6', weight: 2, fillColor: '#161514', fillOpacity: 1
         }).addTo(map);
       }
 
@@ -430,15 +474,15 @@
       const endTimeStr = formatTime(endTimestamp);
       const totalMins = Math.max(1, Math.round((endTimestamp - startTimestamp) / 60000));
 
-      document.getElementById('info-time').innerText = `${startTimeStr} - ${endTimeStr}`;
+      document.getElementById('info-time').innerText = `${startTimeStr} / ${endTimeStr}`;
       document.getElementById('info-duration').innerText = `Duración: ${totalMins} min`;
 
-      setStatusUI('Generando reporte visual en alta calidad...', 'amber');
+      setStatusUI('Procesando lámina cartográfica...', 'amber');
 
       if (routeCoords.length > 0) {
         const lastPoint = routeCoords[routeCoords.length - 1];
         endMarker = L.circleMarker(lastPoint, {
-          radius: 8, color: '#ffffff', weight: 2.5, fillColor: '#dc2626', fillOpacity: 1
+          radius: 7, color: '#161514', weight: 2, fillColor: '#C83B2B', fillOpacity: 1
         }).addTo(map);
 
         if (routeCoords.length === 1) {
@@ -450,9 +494,9 @@
 
       setTimeout(() => {
         const reportElement = document.getElementById('report-card');
-        html2canvas(reportElement, { useCORS: true, scale: 3, backgroundColor: '#ffffff' }).then((canvas) => {
+        html2canvas(reportElement, { useCORS: true, scale: 3, backgroundColor: '#F3EFE6' }).then((canvas) => {
           const workerName = document.getElementById('worker-select').value.replace(/\s+/g, '_');
-          generatedFileName = `Volanteo_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
+          generatedFileName = `Bitacora_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
 
           const link = document.createElement('a');
           link.download = generatedFileName;
@@ -466,7 +510,7 @@
             }
           }, 'image/png');
 
-          setStatusUI('¡Reporte listo! Imagen guardada en tu celular.', 'green');
+          setStatusUI('Bitácora exportada al dispositivo.', 'green');
         });
       }, 950);
     }
@@ -477,8 +521,8 @@
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: 'Reporte de Volanteo - Lido\'s Pizza',
-            text: `Reporte de volanteo realizado por ${document.getElementById('worker-select').value}`,
+            title: 'Bitácora de Volanteo / Lido\'s Pizza',
+            text: `Bitácora de ruta registrada por ${document.getElementById('worker-select').value}`,
             files: [file]
           });
         } catch (err) {}
