@@ -9,33 +9,21 @@
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="apple-touch-icon" href="icon-192.png">
   
-  <!-- Tipografía Editorial y Técnica -->
+  <!-- Tipografía: Oswald (títulos), Open Sans (texto), Raleway (destacados) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  
-  <!-- Tailwind CSS -->
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Open+Sans:wght@400;600&family=Raleway:wght@500;700&display=swap" rel="stylesheet">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            paper: '#F3EFE6',
-            stone: '#E6E0D3',
-            ink: '#161514',
-            vermilion: '#C83B2B'
-          },
-          fontFamily: {
-            serif: ['"Instrument Serif"', 'serif'],
-            sans: ['"Space Grotesk"', 'sans-serif'],
-            mono: ['"IBM Plex Mono"', 'monospace']
-          }
-        }
-      }
+      theme: { extend: {
+        colors: { paper: '#121217', stone: '#18181D', ink: '#ECEFF3', vermilion: '#F8B83F' },
+        fontFamily: { sans: ['"Open Sans"', 'sans-serif'] }
+      } }
     }
   </script>
-  
+
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -44,358 +32,222 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
-    body {
-      background-color: #F3EFE6;
-      color: #161514;
-      background-image: radial-gradient(#161514 0.45px, transparent 0.45px);
-      background-size: 24px 24px;
-    }
-    #map {
-      height: 360px;
-      width: 100%;
-      z-index: 1;
-      filter: contrast(1.04) sepia(0.08);
-    }
-    .mode-btn, .area-btn {
-      background-color: transparent;
-      color: #161514;
-      transition: all 0.15s ease;
-    }
-    .mode-btn.active, .area-btn.active {
-      background-color: #161514;
-      color: #F3EFE6;
-      font-weight: 700;
-    }
-    .hard-offset {
-      box-shadow: 4px 4px 0px #161514;
-    }
-    .btn-editorial {
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-      box-shadow: 3px 3px 0px #161514;
-    }
-    .btn-editorial:active:not(:disabled) {
-      transform: translate(2px, 2px);
-      box-shadow: 1px 1px 0px #161514;
-    }
-    .btn-editorial:disabled {
-      opacity: 0.35;
-      box-shadow: none;
-      cursor: not-allowed;
-    }
-    @keyframes blink-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-    .gps-pulse {
-      animation: blink-dot 1.2s infinite;
-    }
+    :root{--gold:#F8B83F;--bg:#121217;--bg2:#18181D;--head:#ECEFF3;--body:#999;--muted:#CCC;--line:rgba(255,255,255,.1)}
+    body{background:var(--bg);color:var(--body);font:400 13px/1.9 'Open Sans',sans-serif}
+    .f-os{font-family:Oswald,sans-serif}
+    .f-rw{font-family:Raleway,sans-serif}
+    .h-wide{font-family:Oswald,sans-serif;font-weight:400;font-size:24px;letter-spacing:10px;text-transform:uppercase;color:var(--head);line-height:1.2}
+    .nav{font-family:Oswald,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;line-height:1.5}
+    .lbl{display:block;margin-bottom:8px;color:#fff}
+    .gold-line{width:44px;height:2px;background:var(--gold)}
+    .stone{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),var(--bg2)}
+    .panel{background:transparent;border:1px solid var(--line);border-radius:0}
+    .hero{background:radial-gradient(ellipse 90% 55% at 50% 0%,rgba(248,184,63,.22),transparent 70%),linear-gradient(180deg,rgba(18,18,23,.4) 0%,#121217 85%),url(hero.jpg) center/cover,var(--bg2)}
 
-    /* ========================================================== */
-    /* MODO HORIZONTAL AUTOMÁTICO AL EXPORTAR LA IMAGEN (16:9)    */
-    /* ========================================================== */
-    #report-card.landscape-export {
-      width: 1200px !important;
-      max-width: 1200px !important;
-      height: 675px !important;
-      display: grid !important;
-      grid-template-columns: 780px 420px !important;
-      grid-template-rows: 1fr !important;
-    }
-    #report-card.landscape-export #map-section {
-      grid-column: 1 / 2 !important;
-      grid-row: 1 / 2 !important;
-      height: 675px !important;
-      border-bottom: none !important;
-      border-right: 2px solid #161514 !important;
-    }
-    #report-card.landscape-export #map {
-      height: 675px !important;
-      width: 780px !important;
-    }
-    #report-card.landscape-export #sidebar-section {
-      grid-column: 2 / 3 !important;
-      grid-row: 1 / 2 !important;
-      height: 675px !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-    }
+    .field{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:0;color:#fff;font:600 15px 'Open Sans',sans-serif;padding:12px 14px;transition:border-color .2s}
+    .field:focus{outline:none;border-color:var(--gold)}
+    .field::placeholder{color:#666;font-weight:400}
+    .seg{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+    .seg button{background:var(--bg);color:var(--muted);font-family:Oswald,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:12px 6px;transition:background .2s,color .2s}
+    .seg button:hover{color:#fff}
+    .mode-btn.active,.area-btn.active{background:var(--gold);color:var(--bg);font-weight:700}
+
+    .btn{font-family:Oswald,sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:60px;padding:14px 18px;text-align:center;cursor:pointer;transition:transform .2s,background .2s,color .2s,border-color .2s}
+    .btn-gold{background:var(--gold);color:var(--bg)}
+    .btn-gold:hover:not(:disabled){background:#ffc85f;transform:translateY(-1px)}
+    .btn-ghost{border:1px solid rgba(255,255,255,.28);color:#fff;background:transparent}
+    .btn-ghost:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+    .btn:disabled{opacity:.3;cursor:not-allowed}
+    .btn:focus-visible,.seg button:focus-visible,nav button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+    #map{height:360px;width:100%;z-index:1;background:#0e0e12}
+    .leaflet-control-attribution{background:rgba(18,18,23,.75)!important;color:#999!important}
+    .leaflet-control-attribution a{color:var(--gold)!important}
+    #report-card{background:var(--bg);border:1px solid var(--line)}
+
+    @keyframes blink-dot{0%,100%{opacity:1}50%{opacity:.2}}
+    .gps-pulse{animation:blink-dot 1.2s infinite}
+    @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    .rise{animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+    /* MODO HORIZONTAL AL EXPORTAR LA IMAGEN (1200x675) */
+    #report-card.landscape-export{width:1200px!important;max-width:1200px!important;height:675px!important;display:grid!important;grid-template-columns:780px 420px!important;grid-template-rows:1fr!important}
+    #report-card.landscape-export #map-section{grid-column:1/2!important;grid-row:1/2!important;height:675px!important;border-bottom:none!important;border-right:2px solid #F8B83F!important}
+    #report-card.landscape-export #map{height:675px!important;width:780px!important}
+    #report-card.landscape-export #sidebar-section{grid-column:2/3!important;grid-row:1/2!important;height:675px!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important}
   </style>
 </head>
-<body class="min-h-screen py-8 px-4 md:px-8 antialiased selection:bg-vermilion selection:text-paper">
+<body class="min-h-screen px-4 pb-10 pt-4 antialiased selection:bg-vermilion selection:text-paper">
 
-  <!-- ========================================== -->
-  <!-- 1. PANTALLA DE INICIO (PORTADA DE ACCESO)  -->
-  <!-- ========================================== -->
-  <div id="start-screen" class="max-w-lg mx-auto min-h-[85vh] flex flex-col justify-between bg-paper border-2 border-ink p-6 md:p-8 hard-offset">
-    
+  <!-- 1. PORTADA DE ACCESO -->
+  <div id="start-screen" class="hero panel max-w-lg mx-auto min-h-[92vh] flex flex-col justify-between p-7">
     <div>
-      <div class="flex justify-between items-center border-b border-ink pb-3 mb-6 font-mono text-[10px] uppercase tracking-widest">
-        <span>ACCESO DE PERSONAL</span>
-        <span class="text-vermilion font-semibold">SUC. CANTERAS</span>
+      <div class="nav flex justify-between pb-4 mb-14 border-b border-white/10 rise" style="color:var(--muted)">
+        <span>Acceso de personal</span><span class="text-vermilion">Sucursal Canteras</span>
       </div>
-
-      <span class="font-mono text-[11px] uppercase tracking-widest text-ink/70 block mb-1">
-        Sistema de Delimitación de Calles
-      </span>
-      <h1 class="font-serif text-6xl leading-[0.85] tracking-tight text-ink mb-8">
-        Lido's Pizza<br><span class="italic font-normal text-vermilion">Volanteo</span>
-      </h1>
-
-      <!-- 01 / Selección de Integrante -->
-      <div class="mb-7">
-        <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
-          01 / Selecciona tu Nombre
-        </label>
-        <div class="relative border-2 border-ink bg-stone/40">
-          <select id="start-worker-select" class="w-full appearance-none bg-transparent py-3.5 px-4 pr-8 font-sans text-base font-bold text-ink focus:outline-none cursor-pointer rounded-none">
-            <option value="Adriel Lopez Mendez">Adriel Lopez Mendez</option>
-            <option value="Cedric Guzman Velasquez">Cedric Guzman Velasquez</option>
-            <option value="Rosend Patricia Velazquez">Rosend Patricia Velazquez</option>
-            <option value="Nestor Perez Sanchez">Nestor Perez Sanchez</option>
-            <option value="Erika Perez Santos">Erika Perez Santos</option>
-            <option value="Moises Mendoza Reyes">Moises Mendoza Reyes</option>
-          </select>
-          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 font-mono text-xs text-ink">▼</div>
-        </div>
-      </div>
-
-      <!-- 02 / Área Operativa (Actualizada: Producción, Reparto, Gerencia, Mostrador) -->
-      <div class="mb-8">
-        <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
-          02 / Área Operativa
-        </label>
-        <div class="grid grid-cols-2 border border-ink divide-x divide-y divide-ink">
-          <button type="button" onclick="selectArea('Producción', this)" class="area-btn active py-3 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Producción
-          </button>
-          <button type="button" onclick="selectArea('Reparto', this)" class="area-btn py-3 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Reparto
-          </button>
-          <button type="button" onclick="selectArea('Gerencia', this)" class="area-btn py-3 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Gerencia
-          </button>
-          <button type="button" onclick="selectArea('Mostrador', this)" class="area-btn py-3 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Mostrador
-          </button>
-        </div>
-      </div>
+      <h1 class="h-wide rise" style="font-size:46px;letter-spacing:12px;color:#fff;animation-delay:.08s">Lido's<br>Pizza</h1>
+      <div class="gold-line my-5 rise" style="animation-delay:.16s"></div>
+      <p class="f-rw text-vermilion rise" style="font-size:22px;animation-delay:.22s">Volanteo por calles</p>
+      <p class="mt-3 max-w-[32ch] rise" style="animation-delay:.28s">Marca por dónde repartiste y envía el mapa al terminar.</p>
     </div>
 
-    <div class="border-t border-ink pt-5">
-      <p class="font-mono text-[10px] uppercase tracking-wider text-ink/70 mb-4 leading-relaxed">
-        El sistema unifica ambas aceras en una sola línea por calle y genera el reporte final en formato horizontal.
-      </p>
-      <button onclick="enterApp()" class="btn-editorial w-full border-2 border-ink bg-ink hover:bg-vermilion text-paper font-mono text-xs font-semibold uppercase tracking-widest py-4 px-5 flex items-center justify-between transition">
-        <span>Ingresar y Activar GPS</span>
-        <span>→</span>
-      </button>
-    </div>
+    <div class="rise" style="animation-delay:.36s">
+      <label for="start-worker-select" class="nav lbl">Tu nombre</label>
+      <div class="relative mb-6">
+        <select id="start-worker-select" class="field appearance-none pr-10 cursor-pointer">
+          <option value="Adriel Lopez Mendez">Adriel Lopez Mendez</option>
+          <option value="Cedric Guzman Velasquez">Cedric Guzman Velasquez</option>
+          <option value="Rosend Patricia Velazquez">Rosend Patricia Velazquez</option>
+          <option value="Nestor Perez Sanchez">Nestor Perez Sanchez</option>
+          <option value="Erika Perez Santos">Erika Perez Santos</option>
+          <option value="Moises Mendoza Reyes">Moises Mendoza Reyes</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-vermilion text-xs">▼</div>
+      </div>
 
+      <span class="nav lbl">Área</span>
+      <div class="seg mb-8" style="grid-template-columns:1fr 1fr">
+        <button type="button" onclick="selectArea('Producción', this)" class="area-btn active">Producción</button>
+        <button type="button" onclick="selectArea('Reparto', this)" class="area-btn">Reparto</button>
+        <button type="button" onclick="selectArea('Gerencia', this)" class="area-btn">Gerencia</button>
+        <button type="button" onclick="selectArea('Mostrador', this)" class="area-btn">Mostrador</button>
+      </div>
+
+      <button onclick="enterApp()" class="btn btn-gold w-full" style="padding:16px 20px;font-size:13px;letter-spacing:2px">Ingresar y activar GPS</button>
+    </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- 2. PANTALLA PRINCIPAL DE BITÁCORA Y MAPA   -->
-  <!-- ========================================== -->
+  <!-- 2. BITÁCORA Y MAPA -->
   <div id="main-app" class="hidden max-w-lg mx-auto">
-    
-    <!-- CABECERA EDITORIAL -->
-    <header class="border-t-4 border-b border-ink pt-4 pb-5 mb-6 bg-paper">
-      <div class="flex justify-between items-baseline mb-3 font-mono text-[10px] uppercase tracking-widest">
-        <button onclick="backToStart()" class="underline hover:text-vermilion">← Cambiar Operador</button>
-        <button onclick="clearSavedSession()" class="underline text-ink/60 hover:text-vermilion">Reiniciar Trazo</button>
-      </div>
-      
-      <div class="grid grid-cols-12 gap-2 items-end">
-        <div class="col-span-8">
-          <h2 class="font-serif text-5xl leading-[0.88] tracking-tight text-ink">
-            Lido's Pizza<br><span class="italic font-normal text-vermilion">Canteras</span>
-          </h2>
-        </div>
-        <div class="col-span-4 flex justify-end">
-          <button id="btn-locate" onclick="locateUser()" class="border border-ink bg-paper hover:bg-ink hover:text-paper font-mono text-[10px] uppercase tracking-wider px-3 py-2.5 transition">
-            + Reubicar GPS
-          </button>
-        </div>
-      </div>
+
+    <header class="stone sticky top-0 z-50 h-[70px] px-4 flex items-center justify-between border-b" style="border-color:rgba(248,184,63,.3)">
+      <span class="f-os uppercase text-white" style="font-size:16px;letter-spacing:6px">Lido's <span class="text-vermilion">Pizza</span></span>
+      <nav class="flex gap-5 nav">
+        <button onclick="backToStart()" class="text-white hover:text-vermilion transition">Operador</button>
+        <button onclick="clearSavedSession()" class="text-white hover:text-vermilion transition">Reiniciar</button>
+      </nav>
     </header>
 
-    <!-- PANEL DE CONFIGURACIÓN Y CONTROL -->
-    <section id="control-panel" class="mb-8 bg-paper border border-ink p-5 hard-offset">
-      
-      <!-- Barra de Estado del GPS -->
-      <div id="status-badge" class="border-b border-ink pb-3 mb-5 flex items-center justify-between font-mono text-[11px] uppercase tracking-wider text-ink">
-        <div class="flex items-center gap-2.5">
-          <span id="status-dot" class="inline-block h-2.5 w-2.5 bg-vermilion gps-pulse"></span>
-          <span id="status-text">Solicitando permiso de ubicación GPS...</span>
-        </div>
-        <span>[GPS]</span>
+    <div class="py-9 flex items-end justify-between gap-3">
+      <div>
+        <h2 class="h-wide">Bitácora</h2>
+        <div class="gold-line mt-3"></div>
+      </div>
+      <button id="btn-locate" onclick="locateUser()" class="btn btn-ghost" style="padding:9px 16px;font-size:11px">Reubicar GPS</button>
+    </div>
+
+    <section id="control-panel" class="panel p-5 mb-10">
+      <div id="status-badge" class="nav flex items-center gap-3 pb-4 mb-5 border-b border-white/10" style="color:var(--muted)">
+        <span id="status-dot" class="inline-block h-2.5 w-2.5 rounded-full bg-vermilion gps-pulse"></span>
+        <span id="status-text">Solicitando permiso de ubicación GPS...</span>
       </div>
 
-      <!-- Resumen del Operador Activo -->
-      <div class="bg-stone/50 border border-ink p-3 mb-5 flex justify-between items-center">
+      <div class="flex justify-between items-center mb-6">
         <div>
-          <span class="font-mono text-[9px] uppercase tracking-widest text-ink/70 block">Operador en turno</span>
-          <span id="active-operator-label" class="font-sans text-sm font-bold text-ink">Adriel Lopez Mendez</span>
+          <span class="nav block">Operador en turno</span>
+          <span id="active-operator-label" class="f-rw text-white font-bold" style="font-size:16px">Adriel Lopez Mendez</span>
         </div>
-        <span id="active-area-badge" class="font-mono text-[10px] uppercase tracking-wider bg-ink text-paper px-2.5 py-1">
-          Producción
-        </span>
+        <span id="active-area-badge" class="nav px-3 py-1 border" style="border-color:var(--gold);color:var(--gold)">Producción</span>
       </div>
 
-      <!-- Demarcación o Calle -->
-      <div class="mb-5">
-        <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-1.5">
-          01 / Colonia, Sector o Referencia
-        </label>
-        <input id="zone-input" oninput="updatePreviewInfo()" type="text" placeholder="Ej. Col. Las Canteras / Av. Ferrocarril" class="w-full border-b-2 border-ink bg-transparent py-2 font-sans text-base font-bold text-ink placeholder:text-ink/40 placeholder:font-normal focus:outline-none focus:border-vermilion rounded-none transition">
-      </div>
-
-      <!-- Modalidad -->
       <div class="mb-6">
-        <label class="block font-mono text-[10px] uppercase tracking-widest text-ink mb-2">
-          02 / Modalidad de Distribución
-        </label>
-        <div class="grid grid-cols-3 border border-ink divide-x divide-ink">
-          <button type="button" onclick="selectMode('Casas', this)" class="mode-btn active py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Casas
-          </button>
-          <button type="button" onclick="selectMode('Carros', this)" class="mode-btn py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Carros
-          </button>
-          <button type="button" onclick="selectMode('Punto Fijo', this)" class="mode-btn py-2.5 px-2 font-mono text-xs uppercase tracking-wider text-center">
-            Punto Fijo
-          </button>
+        <label for="zone-input" class="nav lbl">Colonia, sector o referencia</label>
+        <input id="zone-input" oninput="updatePreviewInfo()" type="text" placeholder="Ej. Col. Las Canteras / Av. Ferrocarril" class="field">
+      </div>
+
+      <div class="mb-6">
+        <span class="nav lbl">Modalidad de distribución</span>
+        <div class="seg" style="grid-template-columns:repeat(3,1fr)">
+          <button type="button" onclick="selectMode('Casas', this)" class="mode-btn active">Casas</button>
+          <button type="button" onclick="selectMode('Carros', this)" class="mode-btn">Carros</button>
+          <button type="button" onclick="selectMode('Punto Fijo', this)" class="mode-btn">Punto Fijo</button>
         </div>
       </div>
 
-      <!-- CÁMARA INTEGRADA (Evita que el navegador se cierre al tomar las 10 fotos) -->
-      <div class="mb-6 border border-ink bg-stone/30 p-3 flex items-center justify-between">
+      <div class="mb-7 flex items-center justify-between py-4 border-y border-white/10">
         <div>
-          <span class="font-mono text-[10px] uppercase tracking-widest font-semibold block text-ink">Evidencia Fotográfica</span>
-          <span id="photo-counter-text" class="font-mono text-[11px] text-vermilion font-semibold">0 / 10 fotos tomadas</span>
+          <span class="nav block text-white">Evidencia fotográfica</span>
+          <span id="photo-counter-text" class="f-rw text-vermilion font-bold" style="font-size:15px">0 / 10 fotos tomadas</span>
         </div>
-        <label class="btn-editorial border border-ink bg-paper hover:bg-ink hover:text-paper font-mono text-[10px] uppercase tracking-wider px-3 py-2 cursor-pointer transition">
-          📷 Tomar Foto
+        <label class="btn btn-ghost" style="padding:10px 16px;font-size:11px">
+          Tomar foto
           <input type="file" accept="image/*" capture="environment" onchange="handlePhotoCapture(this)" class="hidden">
         </label>
       </div>
 
-      <!-- Botonera de Ejecución -->
-      <div class="grid grid-cols-12 gap-3 pt-1">
-        <button id="btn-start" onclick="startTracking()" disabled class="btn-editorial col-span-5 border border-ink bg-ink text-paper font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-3">
-          Iniciar Ruta
-        </button>
-
-        <button id="btn-mark" onclick="forcePoint()" disabled class="btn-editorial col-span-3 border border-ink bg-stone text-ink font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-2" title="Marcar esquina">
-          + Esquina
-        </button>
-
-        <button id="btn-stop" onclick="finishTracking()" disabled class="btn-editorial col-span-4 border border-ink bg-vermilion text-paper font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-3">
-          Terminar
-        </button>
-
-        <button id="btn-pause" onclick="togglePause()" disabled class="btn-editorial col-span-12 border border-ink bg-paper text-ink font-mono text-xs font-semibold uppercase tracking-wider py-3 px-3">
-          ⏸ Pausar (traslado)
-        </button>
+      <div class="grid grid-cols-12 gap-3">
+        <button id="btn-start" onclick="startTracking()" disabled class="btn btn-gold col-span-5">Iniciar ruta</button>
+        <button id="btn-mark" onclick="forcePoint()" disabled class="btn btn-ghost col-span-3" style="padding-left:6px;padding-right:6px" title="Marcar esquina">+ Esquina</button>
+        <button id="btn-stop" onclick="finishTracking()" disabled class="btn btn-ghost col-span-4" style="border-color:#fff">Terminar</button>
+        <button id="btn-pause" onclick="togglePause()" disabled class="btn btn-ghost col-span-12" style="padding-top:11px;padding-bottom:11px">⏸ Pausar (traslado)</button>
       </div>
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- PLIEGO OFICIAL DE REPORTE (SE CONVIERTE EN HORIZONTAL 1200x675 AL BAJAR) -->
-    <!-- ========================================================================= -->
+    <!-- REPORTE (SE CONVIERTE EN HORIZONTAL 1200x675 AL EXPORTAR) -->
     <div class="overflow-x-auto">
-      <article id="report-card" class="bg-paper border-2 border-ink">
-        
-        <!-- COLUMNA IZQUIERDA EN HORIZONTAL: MAPA -->
-        <div id="map-section" class="relative border-b border-ink">
+      <article id="report-card">
+        <div id="map-section" class="relative border-b border-white/10">
           <div id="map"></div>
         </div>
 
-        <!-- COLUMNA DERECHA EN HORIZONTAL: FICHA TÉCNICA EDITORIAL -->
-        <div id="sidebar-section" class="bg-paper">
-          
-          <!-- Encabezado y Leyenda -->
+        <div id="sidebar-section" class="stone">
           <div>
-            <div class="border-b border-ink p-5 flex justify-between items-end bg-paper">
+            <div class="p-5 flex justify-between items-end border-b border-white/10">
               <div>
-                <span class="font-mono text-[10px] uppercase tracking-widest text-vermilion font-semibold block mb-1">
-                  Delimitación de Volanteo
-                </span>
-                <h2 class="font-serif text-4xl leading-none text-ink">
-                  Lido's Pizza Canteras
-                </h2>
+                <span class="nav text-vermilion block mb-1">Delimitación de volanteo</span>
+                <h2 class="h-wide" style="font-size:22px;letter-spacing:6px">Lido's Pizza<br>Canteras</h2>
               </div>
-              <div class="text-right border-l border-ink pl-3">
-                <span class="font-mono text-[9px] uppercase tracking-widest block text-ink">Fecha</span>
-                <span id="report-date" class="font-mono text-xs font-semibold text-ink block mt-0.5">--/--/----</span>
+              <div class="text-right pl-3 border-l border-white/10">
+                <span class="nav block">Fecha</span>
+                <span id="report-date" class="f-os text-white block" style="font-size:13px;letter-spacing:1px">--/--/----</span>
               </div>
             </div>
-
-            <!-- Cinta Técnica de Leyenda (Solo Línea de Cobertura) -->
-            <div class="bg-ink text-paper px-5 py-2.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider">
-              <div class="flex items-center gap-3">
-                <span class="flex items-center gap-2">
-                  <span class="w-6 h-1.5 bg-vermilion inline-block"></span> Calle Volanteada
-                </span>
-              </div>
-              <span>TRAZO UNIFICADO</span>
+            <div class="nav px-5 py-3 flex items-center justify-between font-bold" style="background:var(--gold);color:var(--bg)">
+              <span class="flex items-center gap-2"><span class="inline-block w-6 h-1" style="background:var(--bg)"></span>Calle volanteada</span>
+              <span>Trazo unificado</span>
             </div>
           </div>
 
-          <!-- Datos de Cobertura y Horario -->
-          <div class="grid grid-cols-12 divide-y divide-ink border-t border-ink bg-paper">
-            
-            <div class="col-span-7 p-5 border-r border-ink flex flex-col justify-between">
-              <span class="font-mono text-[10px] uppercase tracking-widest text-ink">A / Extensión Lineal</span>
+          <div class="grid grid-cols-12">
+            <div class="col-span-7 p-5 border-r border-white/10 flex flex-col justify-between">
+              <span class="nav">Extensión lineal</span>
+              <span id="info-distance" class="f-rw text-vermilion block my-2" style="font-size:44px;font-weight:700;line-height:1">0 m</span>
+              <span id="info-points" class="nav text-white">Trazo continuo</span>
+            </div>
+            <div class="col-span-5 p-5 flex flex-col justify-between">
+              <span class="nav">Horario</span>
               <div class="my-2">
-                <span id="info-distance" class="font-serif text-5xl leading-none text-ink block">0 m</span>
+                <span id="info-time" class="f-os text-white block" style="font-size:13px;letter-spacing:1px">--:-- a --:--</span>
+                <span id="info-duration" class="f-rw block mt-1 font-bold" style="color:var(--muted);font-size:14px">Duración: 0 min</span>
               </div>
-              <span id="info-points" class="font-mono text-[10px] uppercase tracking-wider text-vermilion font-semibold">Trazo continuo</span>
             </div>
-
-            <div class="col-span-5 p-5 flex flex-col justify-between bg-stone/50">
-              <span class="font-mono text-[10px] uppercase tracking-widest text-ink">B / Horario</span>
-              <div class="my-2">
-                <span id="info-time" class="font-mono text-xs font-semibold text-ink block">--:-- a --:--</span>
-                <span id="info-duration" class="font-sans text-base font-bold text-ink block mt-1">Duración: 0 min</span>
-              </div>
-              <span class="font-mono text-[9px] uppercase tracking-widest text-ink">Tiempo Efectivo</span>
+            <div class="col-span-12 p-5 border-t border-white/10">
+              <span class="nav block mb-1">Encargado y área</span>
+              <span id="info-worker" class="f-rw text-white font-bold block" style="font-size:16px">Adriel Lopez Mendez</span>
+              <span id="info-area" class="nav text-vermilion block">Área: Producción</span>
             </div>
-
-            <div class="col-span-12 p-5">
-              <span class="font-mono text-[10px] uppercase tracking-widest text-ink block mb-1">C / Encargado y Área Operativa</span>
-              <span id="info-worker" class="font-sans font-bold text-ink text-base block">Adriel Lopez Mendez</span>
-              <span id="info-area" class="font-mono text-xs uppercase tracking-wider text-vermilion font-semibold block mt-0.5">Área: Producción</span>
+            <div class="col-span-12 p-5 border-t border-white/10">
+              <span class="nav block mb-1">Zona y modalidad</span>
+              <span id="info-zone" class="f-rw text-white font-bold block" style="font-size:16px">Casas / General</span>
             </div>
-
-            <div class="col-span-12 p-5 bg-stone/30">
-              <span class="font-mono text-[10px] uppercase tracking-widest text-ink block mb-1">D / Zona Delimitada y Modalidad</span>
-              <span id="info-zone" class="font-sans font-bold text-ink text-base block">Casas / General</span>
-            </div>
-
           </div>
         </div>
-
       </article>
     </div>
 
-    <!-- BOTÓN DE DESPACHO A WHATSAPP -->
     <div id="share-container" class="hidden mt-6">
-      <button onclick="shareImage()" class="btn-editorial w-full border-2 border-ink bg-ink text-paper font-mono text-xs font-semibold uppercase tracking-widest py-4 px-5 flex items-center justify-between">
-        <span>Enviar Mapa Horizontal por WhatsApp</span>
-        <span>→</span>
-      </button>
+      <button onclick="shareImage()" class="btn btn-gold w-full" style="padding:16px 20px;font-size:13px;letter-spacing:2px">Enviar mapa por WhatsApp</button>
     </div>
-
   </div>
 
   <script>
     const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([23.6345, -102.5528], 5);
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
       crossOrigin: 'anonymous'
     }).addTo(map);
 
@@ -420,8 +272,8 @@
     let wakeLock = null;
 
     // Línea única gruesa de calle volanteada (sin puntos distractores, estilo resaltador cartográfico)
-    let polylineBg = L.polyline([], { color: '#161514', weight: 12, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(map);
-    let polyline = L.polyline([], { color: '#C83B2B', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+    let polylineBg = L.polyline([], { color: '#121217', weight: 12, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+    let polyline = L.polyline([], { color: '#F8B83F', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(map);
 
     const now = new Date();
     document.getElementById('report-date').innerText = now.toLocaleDateString('es-MX', {
@@ -579,7 +431,7 @@
         blue:  'bg-vermilion gps-pulse',
         red:   'bg-vermilion'
       };
-      dot.className = `inline-block h-2.5 w-2.5 ${dotColors[colorType] || 'bg-ink'}`;
+      dot.className = `inline-block h-2.5 w-2.5 rounded-full ${dotColors[colorType] || 'bg-ink'}`;
     }
 
     function locateUser() {
@@ -598,7 +450,7 @@
             previewMarker.setLatLng(currentPos);
           } else {
             previewMarker = L.circleMarker(currentPos, {
-              radius: 7, color: '#F3EFE6', weight: 2, fillColor: '#161514', fillOpacity: 1
+              radius: 7, color: '#121217', weight: 2, fillColor: '#F8B83F', fillOpacity: 1
             }).addTo(map);
           }
 
@@ -881,7 +733,7 @@
           width: 1200,
           height: 675,
           windowWidth: 1280,
-          backgroundColor: '#F3EFE6'
+          backgroundColor: '#121217'
         }).then((canvas) => {
           // Regresar la vista en el celular a su tamaño normal
           reportElement.classList.remove('landscape-export');
