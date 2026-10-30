@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bitácora Cartográfica / Lido's Pizza Canteras</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F3EFE6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="icon-192.png">
   
   <!-- Tipografía Editorial y Técnica -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -290,6 +294,10 @@
         <button id="btn-stop" onclick="finishTracking()" disabled class="btn-editorial col-span-4 border border-ink bg-vermilion text-paper font-mono text-xs font-semibold uppercase tracking-wider py-3.5 px-3">
           Terminar
         </button>
+
+        <button id="btn-pause" onclick="togglePause()" disabled class="btn-editorial col-span-12 border border-ink bg-paper text-ink font-mono text-xs font-semibold uppercase tracking-wider py-3 px-3">
+          ⏸ Pausar (traslado)
+        </button>
       </div>
     </section>
 
@@ -395,7 +403,10 @@
     let previewMarker = null;
     let watchId = null;
     let isTracking = false;
-    let routeCoords = [];
+    let segments = [[]];      // cada tramo es independiente: el traslado nunca se une al volanteo
+    let lastFix = null;
+    let traveling = false;
+    let paused = false;
     let totalDistanceMeters = 0;
     let selectedWorker = 'Adriel Lopez Mendez';
     let selectedArea = 'Producción';
@@ -424,7 +435,7 @@
       if (!isTracking) return;
       const state = {
         isTracking,
-        routeCoords,
+        segments,
         totalDistanceMeters,
         selectedWorker,
         selectedArea,
@@ -442,11 +453,12 @@
       if (!saved) return;
       try {
         const state = JSON.parse(saved);
-        if (state.isTracking && state.routeCoords) {
+        if (state.isTracking && (state.segments || state.routeCoords)) {
           selectedWorker = state.selectedWorker;
           selectedArea = state.selectedArea;
           selectedMode = state.selectedMode;
-          routeCoords = state.routeCoords;
+          segments = state.segments || [state.routeCoords];
+          segments.push([]); lastFix = null;
           totalDistanceMeters = state.totalDistanceMeters || 0;
           startTimestamp = state.startTimestamp ? new Date(state.startTimestamp) : new Date();
           startTimeStrSaved = state.startTimeStrSaved || formatTime(startTimestamp);
@@ -662,49 +674,78 @@
       return rdp(points);
     }
 
+    function redraw() {
+      const clean = segments.filter(sg => sg.length > 0).map(sg => simplifyStreetLine(sg, 10));
+      polylineBg.setLatLngs(clean);
+      polyline.setLatLngs(clean);
+      document.getElementById('info-distance').innerText = formatDistance(totalDistanceMeters);
+      document.getElementById('info-points').innerText = `${clean.reduce((n, sg) => n + sg.length, 0)} tramos de calle`;
+    }
+
+    function newSegment() {
+      if (segments[segments.length - 1].length > 0) segments.push([]);
+    }
+
+    function setTrackingUI() {
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-locate').disabled = true;
+      document.getElementById('btn-mark').disabled = false;
+      document.getElementById('btn-stop').disabled = false;
+      document.getElementById('btn-pause').disabled = false;
+      if (previewMarker) { map.removeLayer(previewMarker); previewMarker = null; }
+    }
+
     function startTracking() {
       isTracking = true;
       updatePreviewInfo();
       startTimestamp = new Date();
       startTimeStrSaved = formatTime(startTimestamp);
+      segments = [[]]; totalDistanceMeters = 0; lastFix = null; traveling = false; paused = false;
 
       document.getElementById('info-time').innerText = `${startTimeStrSaved} a En curso`;
-      document.getElementById('btn-start').disabled = true;
-      document.getElementById('btn-locate').disabled = true;
-      document.getElementById('btn-mark').disabled = false;
-      document.getElementById('btn-stop').disabled = false;
+      setTrackingUI();
+      setStatusUI('Obteniendo tu posición actual...', 'amber');
 
-      setStatusUI('Trazando calles... Puedes tomar fotos sin perder la ruta.', 'blue');
-
-      if (previewMarker) {
-        map.removeLayer(previewMarker);
-        previewMarker = null;
-      }
-
-      if (currentPos) addCoordinate(currentPos[0], currentPos[1], 10);
+      // Posición FRESCA (maximumAge: 0). Nunca se reutiliza la ubicación de cuando se abrió la app.
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const p = [pos.coords.latitude, pos.coords.longitude];
+          if (segments[0].length === 0) {
+            segments[0].push(p);
+            lastFix = { lat: p[0], lng: p[1], t: Date.now() };
+          }
+          map.setView(p, 18);
+          redraw();
+          saveStateToStorage();
+          setStatusUI('Trazando calles... Puedes tomar fotos sin perder la ruta.', 'blue');
+        },
+        () => setStatusUI('Aún sin señal GPS. Se trazará en cuanto llegue.', 'amber'),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+      );
       activateWatchProcess();
     }
 
     function resumeTrackingFromRestore() {
       document.getElementById('info-time').innerText = `${startTimeStrSaved} a En curso`;
-      document.getElementById('btn-start').disabled = true;
-      document.getElementById('btn-locate').disabled = true;
-      document.getElementById('btn-mark').disabled = false;
-      document.getElementById('btn-stop').disabled = false;
-
-      if (previewMarker) {
-        map.removeLayer(previewMarker);
-        previewMarker = null;
-      }
-
-      const cleanCoords = simplifyStreetLine(routeCoords, 10);
-      polylineBg.setLatLngs(cleanCoords);
-      polyline.setLatLngs(cleanCoords);
-      if (cleanCoords.length > 0) map.panTo(cleanCoords[cleanCoords.length - 1]);
-      document.getElementById('info-distance').innerText = formatDistance(totalDistanceMeters);
-
-      setStatusUI('Ruta recuperada automáticamente. Continúa el volanteo.', 'blue');
+      setTrackingUI();
+      redraw();
+      const all = segments.flat();
+      if (all.length > 0) map.panTo(all[all.length - 1]);
+      setStatusUI('Ruta recuperada. Se retoma desde tu posición actual.', 'blue');
       activateWatchProcess();
+    }
+
+    function togglePause() {
+      paused = !paused;
+      const btn = document.getElementById('btn-pause');
+      if (paused) {
+        btn.innerText = '▶ Reanudar trazo';
+        setStatusUI('En pausa: el traslado no se traza.', 'amber');
+      } else {
+        btn.innerText = '⏸ Pausar (traslado)';
+        lastFix = null; traveling = false; newSegment();
+        setStatusUI('Trazando calles...', 'blue');
+      }
     }
 
     function activateWatchProcess() {
@@ -723,58 +764,70 @@
     }
 
     function addCoordinate(lat, lng, accuracy) {
-      if (accuracy && accuracy > 45 && routeCoords.length > 0) return;
+      if (paused || (accuracy && accuracy > 45)) return;
 
-      const newPoint = [lat, lng];
+      const t = Date.now();
+      if (lastFix) {
+        const d = calculateDistance(lastFix.lat, lastFix.lng, lat, lng);
+        const speed = d / Math.max(1, (t - lastFix.t) / 1000);
+        lastFix = { lat, lng, t };
 
-      if (routeCoords.length > 0) {
-        const prev = routeCoords[routeCoords.length - 1];
+        // AUTO-PAUSA: a más de ~12 km/h vas en vehículo, no volanteando
+        if (d > 25 && speed > 3.5) {
+          traveling = true;
+          setStatusUI('Traslado detectado: no se traza. Se reanuda al caminar.', 'amber');
+          return;
+        }
+        // Al volver a caminar (o tras un salto largo) se abre un tramo NUEVO, sin unirlo al anterior
+        if (traveling || d > 300) {
+          traveling = false;
+          newSegment();
+          setStatusUI('Trazando calles...', 'blue');
+        }
+      } else {
+        lastFix = { lat, lng, t };
+      }
+
+      const seg = segments[segments.length - 1];
+      if (seg.length > 0) {
+        const prev = seg[seg.length - 1];
         const dist = calculateDistance(prev[0], prev[1], lat, lng);
-        
-        // FILTRO DE ACERA: Ignora movimientos menores a 18 metros (cruzar la calle de banqueta a banqueta)
+
+        // FILTRO DE ACERA: ignora movimientos menores a 18 m (cruzar de banqueta a banqueta)
         if (dist < 18) return;
 
-        // Evita duplicar línea si regresan sobre el mismo tramo inmediato de la calle
-        for (let i = Math.max(0, routeCoords.length - 5); i < routeCoords.length - 1; i++) {
-          const nearDist = calculateDistance(routeCoords[i][0], routeCoords[i][1], lat, lng);
-          if (nearDist < 14) return;
+        // Evita duplicar línea si regresan sobre el mismo tramo inmediato
+        for (let i = Math.max(0, seg.length - 5); i < seg.length - 1; i++) {
+          if (calculateDistance(seg[i][0], seg[i][1], lat, lng) < 14) return;
         }
-
         totalDistanceMeters += dist;
       }
 
-      routeCoords.push(newPoint);
-
-      // Simplificar la línea para que se vea recta por la calle sin zigzags
-      const cleanCoords = simplifyStreetLine(routeCoords, 10);
-      polylineBg.setLatLngs(cleanCoords);
-      polyline.setLatLngs(cleanCoords);
-      map.panTo(newPoint);
-
-      document.getElementById('info-distance').innerText = formatDistance(totalDistanceMeters);
-      document.getElementById('info-points').innerText = `${cleanCoords.length} tramos de calle`;
-
+      seg.push([lat, lng]);
+      redraw();
+      map.panTo([lat, lng]);
       saveStateToStorage();
     }
 
     function forcePoint() {
+      if (paused) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const newPoint = [pos.coords.latitude, pos.coords.longitude];
-          if (routeCoords.length > 0) {
-            const prev = routeCoords[routeCoords.length - 1];
-            totalDistanceMeters += calculateDistance(prev[0], prev[1], newPoint[0], newPoint[1]);
+          const p = [pos.coords.latitude, pos.coords.longitude];
+          if (traveling) { traveling = false; newSegment(); }
+          const seg = segments[segments.length - 1];
+          if (seg.length > 0) {
+            const prev = seg[seg.length - 1];
+            totalDistanceMeters += calculateDistance(prev[0], prev[1], p[0], p[1]);
           }
-          routeCoords.push(newPoint);
-          const cleanCoords = simplifyStreetLine(routeCoords, 8);
-          polylineBg.setLatLngs(cleanCoords);
-          polyline.setLatLngs(cleanCoords);
-          map.panTo(newPoint);
-          document.getElementById('info-distance').innerText = formatDistance(totalDistanceMeters);
+          seg.push(p);
+          lastFix = { lat: p[0], lng: p[1], t: Date.now() };
+          redraw();
+          map.panTo(p);
           saveStateToStorage();
         },
         null,
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, maximumAge: 0 }
       );
     }
 
@@ -791,6 +844,7 @@
 
       document.getElementById('btn-mark').disabled = true;
       document.getElementById('btn-stop').disabled = true;
+      document.getElementById('btn-pause').disabled = true;
 
       const endTimestamp = new Date();
       const endTimeStr = formatTime(endTimestamp);
@@ -808,14 +862,14 @@
       map.invalidateSize();
 
       // Si solo estuvieron en un punto fijo sin caminar más de una cuadra, dibujar un tramo visible
-      if (routeCoords.length === 1) {
-        const pt = routeCoords[0];
-        routeCoords.push([pt[0] + 0.00012, pt[1] + 0.00012]);
-        polylineBg.setLatLngs(routeCoords);
-        polyline.setLatLngs(routeCoords);
+      const allPts = segments.flat();
+      if (allPts.length === 1) {
+        const pt = allPts[0];
+        segments = [[pt, [pt[0] + 0.00012, pt[1] + 0.00012]]];
+        redraw();
       }
 
-      if (routeCoords.length > 0) {
+      if (segments.flat().length > 0) {
         map.fitBounds(polyline.getBounds(), { padding: [55, 55] });
       }
 
@@ -832,7 +886,7 @@
           // Regresar la vista en el celular a su tamaño normal
           reportElement.classList.remove('landscape-export');
           map.invalidateSize();
-          if (routeCoords.length > 0) map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+          if (segments.flat().length > 0) map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
 
           const workerName = selectedWorker.replace(/\s+/g, '_');
           generatedFileName = `Mapa_Horizontal_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
@@ -866,6 +920,11 @@
           });
         } catch (err) {}
       }
+    }
+
+    // Service Worker: guarda la app, librerías, fuentes y mapas vistos para usarla con mala señal
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
     }
   </script>
 </body>
