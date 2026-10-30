@@ -1,5 +1,5 @@
 // Sube VERSION cada vez que cambies archivos para forzar la actualización del caché
-const VERSION = 'v2';
+const VERSION = 'v3';
 const APP = 'lidos-app-' + VERSION;
 const TILES = 'lidos-tiles';
 const MAX_TILES = 800;
@@ -37,7 +37,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || !req.url.startsWith('http')) return;
 
-  const isTile = req.url.includes('basemaps.cartocdn.com');
+  const isTile = req.url.includes('tile.openstreetmap.org');
   e.respondWith((async () => {
     const cache = await caches.open(isTile ? TILES : APP);
     const hit = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });

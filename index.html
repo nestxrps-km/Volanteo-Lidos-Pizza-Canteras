@@ -244,12 +244,41 @@
   <script>
     const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([23.6345, -102.5528], 5);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      crossOrigin: 'anonymous'
-    }).addTo(map);
+    // Mapa oscuro SIN API key: baja los mosaicos de OpenStreetMap y los oscurece dentro de un canvas.
+    // (Es equivalente a invert + hue-rotate(180) + brillo/contraste, pero al ser píxeles reales
+    //  también sale oscuro en la imagen exportada, cosa que un filtro CSS no logra.)
+    const DarkOSM = L.GridLayer.extend({
+      createTile: function (coords, done) {
+        const size = this.getTileSize();
+        const tile = document.createElement('canvas');
+        tile.width = size.x; tile.height = size.y;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const ctx = tile.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const im = ctx.getImageData(0, 0, size.x, size.y);
+            const p = im.data;
+            for (let i = 0; i < p.length; i += 4) {
+              const r = 255 - p[i], g = 255 - p[i + 1], b = 255 - p[i + 2];
+              let R = -0.574 * r + 1.430 * g + 0.144 * b;
+              let G =  0.426 * r + 0.430 * g + 0.144 * b;
+              let B =  0.426 * r + 1.430 * g - 0.856 * b;
+              p[i]     = Math.max(0, Math.min(255, ((R - 127.5) * 0.9 + 127.5) * 0.9));
+              p[i + 1] = Math.max(0, Math.min(255, ((G - 127.5) * 0.9 + 127.5) * 0.9));
+              p[i + 2] = Math.max(0, Math.min(255, ((B - 127.5) * 0.9 + 127.5) * 0.9));
+            }
+            ctx.putImageData(im, 0, 0);
+          } catch (e) {}
+          done(null, tile);
+        };
+        img.onerror = () => done(null, tile);
+        img.src = `https://tile.openstreetmap.org/${coords.z}/${coords.x}/${coords.y}.png`;
+        return tile;
+      }
+    });
+    new DarkOSM({ maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
     let currentPos = null;
     let previewMarker = null;
