@@ -1,5 +1,5 @@
 // Sube VERSION cada vez que cambies archivos para forzar la actualización del caché
-const VERSION = 'v1';
+const VERSION = 'v2';
 const APP = 'lidos-app-' + VERSION;
 const TILES = 'lidos-tiles';
 const MAX_TILES = 800;
@@ -10,7 +10,7 @@ const PRECACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Open+Sans:wght@400;600&family=Raleway:wght@500;700&display=swap'
 ];
 
 self.addEventListener('install', (e) => {
@@ -37,7 +37,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || !req.url.startsWith('http')) return;
 
-  const isTile = req.url.includes('tile.openstreetmap.org');
+  const isTile = req.url.includes('basemaps.cartocdn.com');
   e.respondWith((async () => {
     const cache = await caches.open(isTile ? TILES : APP);
     const hit = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
