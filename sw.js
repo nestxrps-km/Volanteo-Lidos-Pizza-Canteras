@@ -1,5 +1,5 @@
 // Sube VERSION cada vez que cambies archivos para forzar la actualización del caché
-const VERSION = 'v3';
+const VERSION = 'v4';
 const APP = 'lidos-app-' + VERSION;
 const TILES = 'lidos-tiles';
 const MAX_TILES = 800;

@@ -74,6 +74,7 @@
     /* MODO HORIZONTAL AL EXPORTAR LA IMAGEN (1200x675) */
     #report-card.landscape-export{width:1200px!important;max-width:1200px!important;height:675px!important;display:grid!important;grid-template-columns:780px 420px!important;grid-template-rows:1fr!important}
     #report-card.landscape-export #map-section{grid-column:1/2!important;grid-row:1/2!important;height:675px!important;border-bottom:none!important;border-right:2px solid #F8B83F!important}
+    #report-card.landscape-export .stone{background:var(--bg2)!important}
     #report-card.landscape-export #map{height:675px!important;width:780px!important}
     #report-card.landscape-export #sidebar-section{grid-column:2/3!important;grid-row:1/2!important;height:675px!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important}
   </style>
@@ -237,7 +238,8 @@
     </div>
 
     <div id="share-container" class="hidden mt-6">
-      <button onclick="shareImage()" class="btn btn-gold w-full" style="padding:16px 20px;font-size:13px;letter-spacing:2px">Enviar mapa por WhatsApp</button>
+      <button id="btn-share" onclick="shareImage()" class="btn btn-gold w-full" style="padding:16px 20px;font-size:13px;letter-spacing:2px">Enviar mapa por WhatsApp</button>
+      <button id="btn-retry" onclick="generateMapImage()" class="btn btn-gold w-full hidden" style="padding:16px 20px;font-size:13px;letter-spacing:2px">Reintentar crear mapa</button>
     </div>
   </div>
 
@@ -278,7 +280,7 @@
         return tile;
       }
     });
-    new DarkOSM({ maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    const darkLayer = new DarkOSM({ maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
     let currentPos = null;
     let previewMarker = null;
@@ -734,15 +736,17 @@
       document.getElementById('info-time').innerText = `${startTimeStrSaved} / ${endTimeStr}`;
       document.getElementById('info-duration').innerText = `Duración: ${totalMins} min`;
 
+      generateMapImage();
+    }
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    async function generateMapImage() {
+      const reportElement = document.getElementById('report-card');
+      document.getElementById('share-container').classList.add('hidden');
       setStatusUI('Generando mapa horizontal de calles...', 'amber');
 
-      const reportElement = document.getElementById('report-card');
-      
-      // 1. Activar formato Horizontal (1200x675) para la captura
-      reportElement.classList.add('landscape-export');
-      map.invalidateSize();
-
-      // Si solo estuvieron en un punto fijo sin caminar más de una cuadra, dibujar un tramo visible
+      // Si solo estuvieron en un punto fijo, dibujar un tramo visible
       const allPts = segments.flat();
       if (allPts.length === 1) {
         const pt = allPts[0];
@@ -750,43 +754,60 @@
         redraw();
       }
 
-      if (segments.flat().length > 0) {
-        map.fitBounds(polyline.getBounds(), { padding: [55, 55] });
+      // 1. Formato horizontal (1200x675) y enfocar todas las calles, sin animación
+      reportElement.classList.add('landscape-export');
+      map.invalidateSize(false);
+      if (segments.flat().length > 0) map.fitBounds(polyline.getBounds(), { padding: [55, 55], animate: false });
+
+      // 2. Esperar a que carguen los mosaicos del mapa
+      await sleep(900);
+      if (darkLayer._loading) await new Promise((res) => { darkLayer.once('load', res); setTimeout(res, 6000); });
+      await sleep(300);
+
+      // 3. Capturar (primero en alta calidad; si falla, en calidad normal)
+      let canvas = null, lastErr = null;
+      for (const scale of [2, 1]) {
+        try {
+          canvas = await html2canvas(reportElement, {
+            useCORS: true, scale, width: 1200, height: 675, windowWidth: 1280,
+            backgroundColor: '#121217', logging: false, imageTimeout: 15000
+          });
+          break;
+        } catch (e) { lastErr = e; }
       }
 
-      // 2. Esperar a que el mapa horizontal enfoque todas las calles y descargar el PNG
-      setTimeout(() => {
-        html2canvas(reportElement, {
-          useCORS: true,
-          scale: 2,
-          width: 1200,
-          height: 675,
-          windowWidth: 1280,
-          backgroundColor: '#121217'
-        }).then((canvas) => {
-          // Regresar la vista en el celular a su tamaño normal
-          reportElement.classList.remove('landscape-export');
-          map.invalidateSize();
-          if (segments.flat().length > 0) map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+      // 4. Regresar la vista del celular a su tamaño normal
+      reportElement.classList.remove('landscape-export');
+      map.invalidateSize(false);
+      if (segments.flat().length > 0) map.fitBounds(polyline.getBounds(), { padding: [30, 30], animate: false });
 
-          const workerName = selectedWorker.replace(/\s+/g, '_');
-          generatedFileName = `Mapa_Horizontal_Lidos_${workerName}_${now.toISOString().slice(0,10)}.png`;
+      const blob = canvas ? await new Promise((res) => { try { canvas.toBlob(res, 'image/png'); } catch (e) { lastErr = e; res(null); } }) : null;
 
-          const link = document.createElement('a');
-          link.download = generatedFileName;
-          link.href = canvas.toDataURL('image/png');
-          link.click();
+      if (!blob) {
+        console.error('Error al crear el mapa:', lastErr);
+        setStatusUI('No se pudo crear la imagen. Toca "Reintentar crear mapa".', 'amber');
+        document.getElementById('btn-share').classList.add('hidden');
+        document.getElementById('btn-retry').classList.remove('hidden');
+        document.getElementById('share-container').classList.remove('hidden');
+        return;
+      }
 
-          canvas.toBlob((blob) => {
-            generatedBlob = blob;
-            if (navigator.canShare) {
-              document.getElementById('share-container').classList.remove('hidden');
-            }
-          }, 'image/png');
+      generatedBlob = blob;
+      generatedFileName = `Mapa_Horizontal_Lidos_${selectedWorker.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
+      downloadBlob();
 
-          setStatusUI('¡Mapa horizontal descargado en tu celular!', 'green');
-        });
-      }, 1100);
+      document.getElementById('btn-retry').classList.add('hidden');
+      document.getElementById('btn-share').classList.remove('hidden');
+      document.getElementById('share-container').classList.remove('hidden');
+      setStatusUI('¡Mapa listo! Revisa tus descargas o envíalo por WhatsApp.', 'green');
+    }
+
+    function downloadBlob() {
+      const url = URL.createObjectURL(generatedBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = generatedFileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
 
     async function shareImage() {
@@ -800,6 +821,8 @@
             files: [file]
           });
         } catch (err) {}
+      } else {
+        downloadBlob();
       }
     }
 
